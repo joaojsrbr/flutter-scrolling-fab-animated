@@ -8,25 +8,21 @@ import 'package:flutter/rendering.dart';
 /// Widget to animate the button when scroll down
 class ScrollingFabAnimated extends StatefulWidget {
   /// Function to use when press the button
-  final GestureTapCallback? onPress;
+  final GestureTapCallback onPress;
 
   /// Double value to set the button elevation
-  final double? elevation;
-
-  /// Double value to set the button width
-  final double? width;
-
-  /// Double value to set the button height
-  final double? height;
+  final double elevation;
 
   /// Value to set the duration for animation
-  final Duration? duration;
+  final Duration duration;
 
   /// Widget to use as button icon
-  final Widget? icon;
+  final Widget icon;
+
+  final Size size;
 
   /// Widget to use as button text when button is expanded
-  final Widget? text;
+  final Widget text;
 
   /// Value to set the curve for animation
   final Curve? curve;
@@ -43,17 +39,19 @@ class ScrollingFabAnimated extends StatefulWidget {
   final Color? color;
 
   /// Value to indicate if animate or not the icon
-  final bool? animateIcon;
+  final bool animateIcon;
 
   /// Value to inverte the behavior of the animation
-  final bool? inverted;
+  final bool inverted;
 
   /// Double value to set the button radius
   final double? radius;
 
-  final void Function(TabController tabController, void Function(bool inverted) size)? customTabListener;
+  final void Function(TabController tabController, void Function(bool inverted) size, void Function(bool active) visible)? customTabListener;
 
-  final void Function(ScrollController scrollController, void Function(bool inverted) size)? customScrollListener;
+  final void Function(ScrollController scrollController, void Function(bool inverted) size, void Function(bool active) visible)? customScrollListener;
+
+  final String? tooltipMessage;
 
   const ScrollingFabAnimated({
     super.key,
@@ -65,11 +63,11 @@ class ScrollingFabAnimated extends StatefulWidget {
     this.customScrollListener,
     this.listScrollController,
     this.elevation = 5.0,
-    this.width = 120.0,
-    this.height = 60.0,
-    this.duration = const Duration(milliseconds: 250),
+    this.duration = const Duration(milliseconds: 500),
     this.curve,
-    this.limitIndicator = 10.0,
+    this.tooltipMessage,
+    this.limitIndicator,
+    this.size = const Size(120, 60),
     this.color,
     this.animateIcon = true,
     this.inverted = false,
@@ -83,6 +81,7 @@ class ScrollingFabAnimated extends StatefulWidget {
 class _ScrollingFabAnimatedState extends State<ScrollingFabAnimated> {
   /// Double value for tween ending
   double _endTween = 100;
+  bool isVisible = true;
 
   @override
   void setState(VoidCallback fn) {
@@ -92,7 +91,7 @@ class _ScrollingFabAnimatedState extends State<ScrollingFabAnimated> {
   @override
   void initState() {
     super.initState();
-    if (widget.inverted!) {
+    if (widget.inverted) {
       setState(() {
         _endTween = 0;
       });
@@ -109,22 +108,31 @@ class _ScrollingFabAnimatedState extends State<ScrollingFabAnimated> {
   }
 
   void _scrollListener(ScrollController scrollController) {
-    if (scrollController.position.pixels > widget.limitIndicator! && scrollController.position.userScrollDirection == ScrollDirection.reverse) {
+    if ((widget.limitIndicator != null ? scrollController.position.pixels > widget.limitIndicator! : true) &&
+        scrollController.position.userScrollDirection == ScrollDirection.reverse) {
       setState(() {
-        _endTween = widget.inverted! ? 100 : 0;
+        _endTween = widget.inverted ? 100 : 0;
       });
-    } else if (scrollController.position.pixels <= widget.limitIndicator! &&
+    } else if ((widget.limitIndicator != null ? scrollController.position.pixels <= widget.limitIndicator! : true) &&
         scrollController.position.userScrollDirection == ScrollDirection.forward) {
       setState(() {
-        _endTween = widget.inverted! ? 0 : 100;
+        _endTween = widget.inverted ? 0 : 100;
       });
     }
   }
 
-  void sizeTween(bool size) {
+  void _sizeTween(bool size) {
     setState(
       () {
-        size ? _endTween = widget.inverted! ? 0 : 100 : _endTween = widget.inverted! ? 100 : 0;
+        size ? _endTween = widget.inverted ? 0 : 100 : _endTween = widget.inverted ? 100 : 0;
+      },
+    );
+  }
+
+  void _visible(bool active) {
+    setState(
+      () {
+        isVisible = active;
       },
     );
   }
@@ -133,7 +141,7 @@ class _ScrollingFabAnimatedState extends State<ScrollingFabAnimated> {
     if (widget.listScrollController == null) return;
     for (ScrollController scroll in widget.listScrollController!) {
       if (widget.customScrollListener != null) {
-        scroll.addListener(() => widget.customScrollListener!(scroll, sizeTween));
+        scroll.addListener(() => widget.customScrollListener!(scroll, _sizeTween, _visible));
         continue;
       }
       scroll.addListener(() => _scrollListener(scroll));
@@ -144,7 +152,7 @@ class _ScrollingFabAnimatedState extends State<ScrollingFabAnimated> {
     if (widget.listScrollController == null) return;
     for (ScrollController scroll in widget.listScrollController!) {
       if (widget.customScrollListener != null) {
-        scroll.removeListener(() => widget.customScrollListener!(scroll, sizeTween));
+        scroll.removeListener(() => widget.customScrollListener!(scroll, _sizeTween, _visible));
         continue;
       }
       scroll.removeListener(() => _scrollListener(scroll));
@@ -154,63 +162,82 @@ class _ScrollingFabAnimatedState extends State<ScrollingFabAnimated> {
   void _addListenerTab() {
     if (widget.listTabController == null || widget.customTabListener == null) return;
     for (TabController tabController in widget.listTabController!) {
-      tabController.addListener(() => widget.customTabListener!(tabController, sizeTween));
+      tabController.addListener(() => widget.customTabListener!(tabController, _sizeTween, _visible));
     }
   }
 
   void _removeListenerTab() {
     if (widget.listTabController == null || widget.customTabListener == null) return;
     for (TabController tabController in widget.listTabController!) {
-      tabController.removeListener(() => widget.customTabListener!(tabController, sizeTween));
+      tabController.removeListener(() => widget.customTabListener!(tabController, _sizeTween, _visible));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-        elevation: widget.elevation,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(widget.height! / 2))),
-        child: TweenAnimationBuilder(
-          tween: Tween<double>(begin: 0, end: _endTween),
-          duration: widget.duration!,
-          builder: (BuildContext _, double size, Widget? child) {
-            double _widthPercent = (widget.width! - widget.height!).abs() / 100;
-            bool _isFull = _endTween == 100;
-            double _radius = widget.radius ?? (widget.height! / 2);
-            return Container(
-              decoration:
-                  BoxDecoration(borderRadius: BorderRadius.all(Radius.circular(_radius)), color: widget.color ?? Theme.of(context).primaryColor),
-              height: widget.height,
-              width: widget.height! + _widthPercent * size,
-              child: InkWell(
-                onTap: widget.onPress,
-                child: Ink(
-                  child: Row(
-                    mainAxisAlignment: _isFull ? MainAxisAlignment.spaceEvenly : MainAxisAlignment.center,
-                    children: [
-                      Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 15),
-                          child: Transform.rotate(
-                            angle: widget.animateIcon! ? (3.6 * math.pi / 180) * size : 0,
-                            child: widget.icon,
-                          )),
-                      ...(_isFull
-                          ? [
-                              Expanded(
-                                child: AnimatedOpacity(
-                                  opacity: size > 90 ? 1 : 0,
-                                  duration: const Duration(milliseconds: 100),
-                                  child: widget.text!,
-                                ),
-                              )
-                            ]
-                          : []),
-                    ],
+    return Visibility(
+      visible: isVisible,
+      child: FittedBox(
+        clipBehavior: Clip.antiAlias,
+        child: Card(
+            elevation: widget.elevation,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(widget.radius ?? 10),
+            ),
+            child: TweenAnimationBuilder(
+              tween: Tween<double>(begin: 0, end: _endTween),
+              duration: widget.duration,
+              builder: (BuildContext _, double size, Widget? child) {
+                final double widthPercent = (widget.size.width - widget.size.height).abs() / 100;
+                final bool isFull = _endTween == 100;
+                final double radius = widget.radius ?? (widget.size.height / 2);
+                final widthFactor = ((math.pi / 250) * size).clamp(0.0, 1.0);
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(radius),
+                    color: widget.color ?? Theme.of(context).floatingActionButtonTheme.backgroundColor,
                   ),
-                ),
-              ),
-            );
-          },
-        ));
+                  clipBehavior: Clip.antiAlias,
+                  constraints: BoxConstraints.tightFor(width: widget.size.height + (widthPercent * size), height: widget.size.height),
+                  child: InkWell(
+                    enableFeedback: true,
+                    borderRadius: BorderRadius.circular(radius),
+                    onTap: widget.onPress,
+                    child: Tooltip(
+                      message: widget.tooltipMessage ?? (widget.text as Text).data,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            // child: Transform.rotate(
+                            //   angle: widget.animateIcon ? (3.6 * math.pi / 180) * size : 0,
+                            //   child: widget.icon,
+                            // ),
+                            child: Align(
+                              widthFactor: widthFactor,
+                              child: widget.icon,
+                            ),
+                          ),
+                          if (isFull)
+                            Expanded(
+                              flex: widthFactor.toInt(),
+                              child: Visibility(
+                                visible: widthFactor >= 0.8,
+                                child: Opacity(
+                                  opacity: widthFactor,
+                                  child: widget.text,
+                                ),
+                              ),
+                            )
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            )),
+      ),
+    );
   }
 }
