@@ -114,6 +114,7 @@ class _ScrollingFabAnimatedState extends State<ScrollingFabAnimated> {
         _endTween = widget.inverted ? 100 : 0;
       });
     } else if ((widget.limitIndicator != null ? scrollController.position.pixels <= widget.limitIndicator! : true) &&
+        scrollController.position.pixels > 30 &&
         scrollController.position.userScrollDirection == ScrollDirection.forward) {
       setState(() {
         _endTween = widget.inverted ? 0 : 100;
