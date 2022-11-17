@@ -206,7 +206,7 @@ class _ScrollingFabAnimatedState extends State<ScrollingFabAnimated> {
                     child: Tooltip(
                       message: widget.tooltipMessage ?? (widget.text as Text).data,
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        mainAxisAlignment: isFull ? MainAxisAlignment.spaceEvenly : MainAxisAlignment.center,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
