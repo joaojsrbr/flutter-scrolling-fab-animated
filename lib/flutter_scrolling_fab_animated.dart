@@ -22,7 +22,7 @@ class ScrollingFabAnimated extends StatefulWidget {
   final Size size;
 
   /// Widget to use as button text when button is expanded
-  final Widget text;
+  final Text text;
 
   /// Value to set the curve for animation
   final Curve? curve;
@@ -33,7 +33,7 @@ class ScrollingFabAnimated extends StatefulWidget {
   final List<TabController>? listTabController;
 
   /// Double value to set the boundary value when scroll animation is triggered
-  final double? limitIndicator;
+  final double limitIndicator;
 
   /// Color to set the button background color
   final Color? color;
@@ -66,7 +66,7 @@ class ScrollingFabAnimated extends StatefulWidget {
     this.duration = const Duration(milliseconds: 500),
     this.curve,
     this.tooltipMessage,
-    this.limitIndicator,
+    this.limitIndicator = 50,
     this.size = const Size(120, 60),
     this.color,
     this.animateIcon = true,
@@ -82,6 +82,7 @@ class _ScrollingFabAnimatedState extends State<ScrollingFabAnimated> {
   /// Double value for tween ending
   double _endTween = 100;
   bool isVisible = true;
+  double? oldPosition;
 
   @override
   void setState(VoidCallback fn) {
@@ -108,16 +109,19 @@ class _ScrollingFabAnimatedState extends State<ScrollingFabAnimated> {
   }
 
   void _scrollListener(ScrollController scrollController) {
-    if ((widget.limitIndicator != null ? scrollController.position.pixels > widget.limitIndicator! : true) &&
-        scrollController.position.userScrollDirection == ScrollDirection.reverse) {
+    final double pixels = scrollController.position.pixels;
+    oldPosition = oldPosition ?? pixels;
+    double diff = pixels - (oldPosition ?? 0.0);
+
+    if (diff > widget.limitIndicator && scrollController.position.userScrollDirection == ScrollDirection.reverse) {
       setState(() {
         _endTween = widget.inverted ? 100 : 0;
+        oldPosition = pixels;
       });
-    } else if ((widget.limitIndicator != null ? scrollController.position.pixels <= widget.limitIndicator! : true) &&
-        scrollController.position.pixels > 30 &&
-        scrollController.position.userScrollDirection == ScrollDirection.forward) {
+    } else if (diff <= widget.limitIndicator && scrollController.position.userScrollDirection == ScrollDirection.forward) {
       setState(() {
         _endTween = widget.inverted ? 0 : 100;
+        oldPosition = pixels;
       });
     }
   }
@@ -205,7 +209,7 @@ class _ScrollingFabAnimatedState extends State<ScrollingFabAnimated> {
                     borderRadius: BorderRadius.circular(radius),
                     onTap: widget.onPress,
                     child: Tooltip(
-                      message: widget.tooltipMessage ?? (widget.text as Text).data,
+                      message: widget.tooltipMessage ?? widget.text.data,
                       child: Row(
                         mainAxisAlignment: isFull ? MainAxisAlignment.spaceEvenly : MainAxisAlignment.center,
                         children: [
